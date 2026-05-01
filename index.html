@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>数据架构DW-DM实战经验总结 - 交互式思维导图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#f8f9fa;color:#2c3e50}
+.header{background:linear-gradient(135deg,#1a237e,#4a148c);color:white;padding:30px 40px;text-align:center}
+.header h1{font-size:28px;margin-bottom:8px}
+.header p{opacity:.85;font-size:14px}
+.toolbar{display:flex;justify-content:center;gap:12px;padding:16px;background:white;border-bottom:1px solid #e9ecef;flex-wrap:wrap}
+.toolbar button{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s;font-family:inherit;color:white}
+.btn-expand-all{background:#1a237e}.btn-collapse-all{background:#6c757d}.btn-search{background:#17a2b8}
+.toolbar button:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15)}
+#searchInput{padding:8px 16px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:240px;font-family:inherit;display:none}
+.mindmap{max-width:1400px;margin:24px auto;padding:0 20px}
+.node-root{text-align:center;margin-bottom:28px}
+.root-title{display:inline-block;background:linear-gradient(135deg,#1a237e,#4a148c);color:white;padding:18px 48px;border-radius:12px;font-size:22px;font-weight:bold;box-shadow:0 4px 15px rgba(26,35,126,.4);letter-spacing:2px}
+.branch{margin-left:0;position:relative;padding-left:32px;border-left:3px solid #dee2e6;margin-top:6px;margin-bottom:14px}
+.branch::before{content:"";position:absolute;left:-1.5px;top:22px;width:18px;height:3px;background:#dee2e6}
+.branch-header{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:10px 16px;border-radius:10px;transition:all .25s;margin-bottom:6px}
+.branch-header:hover{transform:translateX(4px);box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.toggle-icon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex-shrink:0;transition:transform .3s cubic-bezier(.68,-.55,.27,1.55);color:white;font-style:normal}
+.toggle-icon.expanded{transform:rotate(90deg)}
+.branch-title{font-size:15px;font-weight:600;flex:1}
+.badge{font-size:11px;padding:2px 10px;border-radius:12px;color:white;font-weight:normal;opacity:.9}
+.c-red .branch-header{background:linear-gradient(135deg,#ffe5e5,#ffd6d6);border-left:4px solid #e74c3c}
+.c-red .toggle-icon{background:#e74c3c}.c-red .badge{background:#e74c3c}
+.c-blue .branch-header{background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-left:4px solid #1565c0}
+.c-blue .toggle-icon{background:#1565c0}.c-blue .badge{background:#1565c0}
+.c-green .branch-header{background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-left:4px solid #2e7d32}
+.c-green .toggle-icon{background:#2e7d32}.c-green .badge{background:#2e7d32}
+.c-purple .branch-header{background:linear-gradient(135deg,#f3e5f5,#e1bee7);border-left:4px solid #7b1fa2}
+.c-purple .toggle-icon{background:#7b1fa2}.c-purple .badge{background:#7b1fa2}
+.c-orange .branch-header{background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-left:4px solid #e65100}
+.c-orange .toggle-icon{background:#e65100}.c-orange .badge{background:#e65100}
+.c-teal .branch-header{background:linear-gradient(135deg,#e0f2f1,#b2dfdb);border-left:4px solid #00695c}
+.c-teal .toggle-icon{background:#00695c}.c-teal .badge{background:#00695c}
+.c-pink .branch-header{background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-left:4px solid #c2185b}
+.c-pink .toggle-icon{background:#c2185b}.c-pink .badge{background:#c2185b}
+.c-indigo .branch-header{background:linear-gradient(135deg,#e8eaf6,#c5cae9);border-left:4px solid #283593}
+.c-indigo .toggle-icon{background:#283593}.c-indigo .badge{background:#283593}
+.c-brown .branch-header{background:linear-gradient(135deg,#efebe9,#d7ccc8);border-left:4px solid #4e342e}
+.c-brown .toggle-icon{background:#4e342e}.c-brown .badge{background:#4e342e}
+.c-slate .branch-header{background:linear-gradient(135deg,#eceff1,#cfd8dc);border-left:4px solid #546e7a}
+.c-slate .toggle-icon{background:#546e7a}.c-slate .badge{background:#546e7a}
+.sub-branch{margin-left:20px;padding-left:24px;border-left:2px solid #e9ecef;margin-top:4px;margin-bottom:8px;position:relative}
+.sub-branch::before{content:"";position:absolute;left:-1px;top:18px;width:14px;height:2px;background:#e9ecef}
+.sub-header{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 12px;border-radius:8px;transition:all .2s;background:#fafbfc;border-left:3px solid transparent;font-size:13.5px}
+.sub-header:hover{background:#f0f4f8;border-left-color:#adb5bd;transform:translateX(2px)}
+.sub-toggle{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;flex-shrink:0;transition:transform .3s;color:white;font-style:normal;background:#adb5bd}
+.sub-toggle.expanded{transform:rotate(90deg)}
+.sub-title{font-weight:500;color:#495057;flex:1}
+.leaf-count{font-size:11px;color:#868e96}
+.leaves{margin-left:16px;margin-top:4px}
+.leaf{display:inline-block;margin:3px 6px 3px 0;padding:5px 12px;background:white;border:1px solid #e9ecef;border-radius:6px;font-size:12.5px;color:#495057;transition:all .2s;line-height:1.6}
+.leaf:hover{border-color:#1a237e;color:#1a237e;box-shadow:0 2px 6px rgba(26,35,126,.15);transform:translateY(-1px)}
+.detail-card{background:white;border:1px solid #e9ecef;border-radius:8px;padding:12px 16px;margin:6px 0 6px 16px;font-size:12.5px;color:#6c757d;line-height:1.7}
+.detail-card strong{color:#495057}
+.detail-card code{background:#f1f3f5;padding:1px 6px;border-radius:4px;font-size:11.5px;color:#e83e8c}
+.children{overflow:hidden;transition:max-height .4s ease-out,opacity .3s}
+.children.collapsed{max-height:0!important;opacity:0;pointer-events:none}
+.search-highlight{background:#fff176;padding:0 2px;border-radius:2px}
+.stats-bar{display:flex;justify-content:center;gap:30px;padding:16px;background:white;border-top:1px solid #e9ecef;margin-top:20px;flex-wrap:wrap}
+.stat-item{text-align:center}
+.stat-num{font-size:24px;font-weight:bold;color:#1a237e}
+.stat-label{font-size:12px;color:#868e96;margin-top:2px}
+.footer{text-align:center;padding:20px;color:#adb5bd;font-size:12px}
+.table-mini{border-collapse:collapse;margin:6px 0 6px 16px;font-size:12px;width:auto;max-width:calc(100% - 32px)}
+.table-mini th{background:#f1f3f5;padding:5px 10px;border:1px solid #dee2e6;text-align:left;font-weight:600;white-space:nowrap}
+.table-mini td{padding:4px 10px;border:1px solid #dee2e6;vertical-align:top}
+.table-mini tr:hover td{background:#f8f9fa}
+pre.code-block{background:#1e1e2e;color:#cdd6f4;padding:12px 16px;border-radius:8px;margin:6px 0 6px 16px;font-size:11.5px;line-height:1.6;overflow-x:auto;font-family:"JetBrains Mono","Fira Code","Consolas",monospace}
+pre.code-block .kw{color:#89dceb}.code-block .fn{color:#a6e3a1}.code-block .cm{color:#6c7086}.code-block .str{color:#f9e2af}.code-block .num{color:#fab387}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>数据架构 DW/DM 实战经验总结</h1>
+<p>多源异构数据整合 | MSSQL + SSIS | RPA 无 API 场景 | 产品 SN 核心建模 | 共 9 大章节 · 200+ 知识点</p>
+</div>
+
+<div class="toolbar">
+<button class="btn-expand-all" onclick="expandAll()">展开全部</button>
+<button class="btn-collapse-all" onclick="collapseAll()">折叠全部</button>
+<button class="btn-search" onclick="toggleSearch()">搜索</button>
+<input type="text" id="searchInput" placeholder="输入关键词搜索..." oninput="doSearch(this.value)">
+</div>
+
+<div class="mindmap" id="mindmap">
+
+<!-- ROOT -->
+<div class="node node-root">
+<div class="root-title">数据架构 DW/DM 实战经验总结</div>
+<p style="margin-top:12px;color:#6c757d;font-size:13.5px;">一线踩坑记录，不是教科书，是干过之后的真话</p>
+</div>
+
+<!-- ============ 一、MSSQL实战 ============ -->
+<div class="node branch c-red">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">一、MSSQL：用对了是利器，用错了是坑</span><span class="badge">4个要点</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">1.1 索引：别盲目加，先看访问模式</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">聚簇索引一个表只能有一个，选哪个字段取决于业务怎么查</span><span class="leaf">性别字段建索引纯属浪费——区分度太低</span><span class="leaf">隐式类型转换是隐形杀手：字段varchar传参int，索引直接废掉</span><span class="leaf">WHERE YEAR(CreateDate)=2020 函数包列索引白建，改用范围查询</span><span class="leaf">统计信息过期会导致优化器选错执行计划</span></div>
+<div class="detail-card"><strong>性能调优心得：</strong>先看 <code>Logical Reads</code>，SQL Server 性能瓶颈本质是 IO。Logical Reads 从 10 万降到 1 万，性能提升 10 倍以上。执行计划从右往左读，找代价最大的节点。</div>
+<pre class="code-block"><span class="cm">-- 调优必备三件套</span>
+<span class="kw">SET STATISTICS IO ON;</span>
+<span class="kw">SET STATISTICS TIME ON;</span>
+<span class="cm">-- 然后看执行计划，重点找 Index Scan / 全表扫描</span></pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">1.2 存储过程 vs 函数：各司其职</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">业务逻辑封装用存储过程，计算逻辑封装用函数</span><span class="leaf">ETL批量清洗和写入用存储过程——可以控制事务、处理异常</span><span class="leaf">SELECT里做字段级转换用函数——可直接嵌在查询里</span></div>
+<pre class="code-block"><span class="cm">-- 函数：字段级计算，SELECT里直接用</span>
+<span class="kw">CREATE FUNCTION</span> fn_OrderTotal(<span class="kw">@OrderID INT</span>)
+<span class="kw">RETURNS DECIMAL(18,2) AS</span>
+<span class="kw">BEGIN</span>
+    <span class="kw">RETURN</span> (<span class="kw">SELECT SUM</span>(Amount) <span class="kw">FROM</span> OrderDetail <span class="kw">WHERE</span> OrderID = <span class="kw">@OrderID</span>)
+<span class="kw">END</span>
+
+<span class="cm">-- 存储过程：批量操作，带事务控制</span>
+<span class="kw">CREATE PROCEDURE</span> sp_ProcessOrders <span class="kw">@Status INT AS</span>
+<span class="kw">BEGIN</span>
+    <span class="kw">BEGIN TRANSACTION;</span>
+    <span class="kw">UPDATE</span> Orders <span class="kw">SET</span> Status = <span class="kw">@Status WHERE</span> ...
+    <span class="kw">COMMIT;</span>
+<span class="kw">END</span></pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">1.3 事务与锁：Serializable 别轻易用</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">MSSQL默认Read Committed，绝大多数场景够用</span><span class="leaf">高并发写入时建议开启RCSI（读已提交快照隔离），减少锁竞争</span><span class="leaf">死锁不是故障，是并发控制的正常表现</span><span class="leaf">核心应对：统一访问顺序 + 缩短事务时间</span></div>
+<pre class="code-block"><span class="cm">-- 开启RCSI</span>
+<span class="kw">ALTER DATABASE</span> DBName <span class="kw">SET READ_COMMITTED_SNAPSHOT ON;</span>
+
+<span class="cm">-- 乐观并发（版本号控制）</span>
+<span class="kw">UPDATE</span> Products
+<span class="kw">SET</span> Stock = Stock - <span class="num">1</span>, Version = Version + <span class="num">1</span>
+<span class="kw">WHERE</span> ID = <span class="kw">@ID</span> <span class="kw">AND</span> Version = <span class="kw">@ExpectedVersion;</span>
+
+<span class="kw">IF @@ROWCOUNT = 0</span>
+    <span class="kw">RAISERROR</span>(<span class="str">'数据已被修改，请重试'</span>, <span class="num">16</span>, <span class="num">1</span>);</pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">1.4 分区表：5000 万行以上再考虑</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">单表超5000万行、需要历史归档、需要并行操作——满足两个就该分区</span><span class="leaf">按时间分区最常见，按月或按季度</span><span class="leaf">查询一定要带分区字段，否则扫所有分区比不分区还慢</span></div>
+<pre class="code-block"><span class="kw">CREATE PARTITION FUNCTION</span> pf_OrderDate (<span class="kw">DATETIME</span>)
+<span class="kw">AS RANGE RIGHT FOR VALUES</span> (<span class="str">'2020-01-01'</span>, <span class="str">'2021-01-01'</span>, <span class="str">'2022-01-01'</span>);
+
+<span class="kw">CREATE PARTITION SCHEME</span> ps_OrderDate
+<span class="kw">AS PARTITION</span> pf_OrderDate
+<span class="kw">TO</span> (FG2020, FG2021, FG2022, FGArchive);</pre>
+</div></div>
+</div></div>
+
+<!-- ============ 二、ETL管道 ============ -->
+<div class="node branch c-blue">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">二、ETL 管道：先落地再清洗，别在采集层做逻辑</span><span class="badge">7个主题</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">2.1 SSIS 的架构理解</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">控制流管"做什么"（执行顺序、条件分支）</span><span class="leaf">数据流管"怎么做"（抽取、转换、加载）</span><span class="leaf">数据清洗逻辑放数据流里，控制流只做调度</span><span class="leaf">Source: OLE DB Source, Flat File Source, Excel Source</span><span class="leaf">Transformation: Derived Column, Lookup, Conditional Split, Merge Join, Aggregate</span><span class="leaf">Destination: OLE DB Destination, Flat File Destination</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">2.2 多平台数据整合的分层架构</span>
+</div>
+<div class="children">
+<div class="detail-card"><strong>分层的核心价值：</strong>出问题能定位到具体层，不用全局排查</div>
+<table class="table-mini"><thead><tr><th>层级</th><th>存放内容</th><th>数据特征</th><th>谁会用</th></tr></thead><tbody>
+<tr><td>Source</td><td>各平台原始数据</td><td>字段乱、格式杂、未清洗</td><td>极少</td></tr>
+<tr><td>Stage/ODS</td><td>采集原始表+异常表</td><td>零清洗、加溯源字段</td><td>数据工程师</td></tr>
+<tr><td>DW</td><td>统一维表+统一事实表</td><td>已标准化、已去重</td><td>分析师+工程师</td></tr>
+<tr><td>Data Mart</td><td>业务主题宽表</td><td>已反规范化、业务友好</td><td>业务方+分析师</td></tr>
+</tbody></table>
+<div class="leaves"><span class="leaf">数据流向永远单向：Source → Stage → DW → Mart，不允许反向回写</span><span class="leaf">Stage层不建维度表：只有原始表和异常表</span><span class="leaf">DW层不加业务字段：纯整合，出问题能溯源到Stage</span><span class="leaf">Mart层是交付层：按业务主题构建，业务方直接查询</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">2.3 RPA 数据：质量差是常态，不是意外</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">常见问题：字段缺失、格式不一致、乱码、采集遗漏、重复数据、字段错位</span><span class="leaf">先探底：采集100条样本看数据质量基线</span><span class="leaf">分两阶段清洗：第一阶段标准化格式，第二阶段业务逻辑清洗</span><span class="leaf">加质量监控：采集成功率、数据量波动、异常率都要盯</span></div>
+<div class="detail-card"><strong>最重要的一条：</strong>不要在采集层做太多逻辑。RPA脚本维护成本很高，采集层只负责"拿数据"，清洗留给ETL。</div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">2.4 脏数据：不丢弃，但必须隔离</span>
+</div>
+<div class="children">
+<div class="detail-card"><strong>核心原则：</strong>不让异常阻断ETL，但也不能让异常数据污染目标表。<br>正常数据 → 目标表 | 脏数据 → 异常表（打标原因）→ 告警通知</div>
+<table class="table-mini"><thead><tr><th>类型</th><th>处理方式</th></tr></thead><tbody>
+<tr><td>字段缺失</td><td>默认值填充或标记NULL，可以进目标表但可查</td></tr>
+<tr><td>格式错误</td><td>尝试标准化，失败则入异常表</td></tr>
+<tr><td>主键冲突</td><td>判断是重复还是真正冲突，分别处理</td></tr>
+<tr><td>业务逻辑错误</td><td>入异常表，业务方确认后再处理</td></tr>
+<tr><td>完全无法解析</td><td>入异常表，保留原始数据以便回溯</td></tr>
+</tbody></table>
+<div class="leaves"><span class="leaf">有些"脏数据"其实是业务边界情况，直接丢弃会漏数据</span><span class="leaf">处理异常表时必须让业务方参与</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">2.5 增量 vs 全量：优先时间戳方案</span>
+</div>
+<div class="children">
+<table class="table-mini"><thead><tr><th>场景</th><th>选全量</th><th>选增量</th></tr></thead><tbody>
+<tr><td>数据量<10万行</td><td>✅</td><td>—</td></tr>
+<tr><td>数据量大、变化比例小</td><td>—</td><td>✅</td></tr>
+<tr><td>源表无时间戳/自增ID</td><td>✅</td><td>—</td></tr>
+<tr><td>初次建仓</td><td>✅</td><td>—</td></tr>
+</tbody></table>
+<div class="leaves"><span class="leaf">增量实现优先级：时间戳字段 > 自增ID > CDC > 触发器 > 日志解析</span><span class="leaf">时间戳方案侵入性最小</span><span class="leaf">每次跑完增量一定要核对：增量行数+已累计行数=总行数</span></div>
+<pre class="code-block"><span class="kw">DECLARE</span> <span class="kw">@LastLoadTime DATETIME</span> = (<span class="kw">SELECT MAX</span>(LoadTime) <span class="kw">FROM</span> TargetTable);
+<span class="kw">INSERT INTO</span> TargetTable
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> SourceTable <span class="kw">WHERE</span> UpdatedAt &gt; <span class="kw">@LastLoadTime;</span></pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">2.6 调度与监控：告警必须分级</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">INFO：任务开始/完成（记录但不打扰）</span><span class="leaf">WARN：数据量波动±20%、采集成功率低（关注但不需要立即处理）</span><span class="leaf">ERROR：任务失败、异常率超标（必须立即响应）</span></div>
+<div class="detail-card"><strong>告警不分级 = 告警疲劳 = 所有人免疫 = 等于没有告警</strong></div>
+<pre class="code-block"><span class="cm">-- 任务日志表设计</span>
+<span class="kw">INSERT INTO</span> ETL_Log (PackageName, StartTime, EndTime, Status, RowsProcessed, ErrorMessage)
+<span class="kw">VALUES</span> (<span class="str">'pkg_OrderETL'</span>, <span class="kw">@Start</span>, <span class="kw">GETDATE()</span>, <span class="str">'Success'</span>, <span class="kw">@RowCount</span>, <span class="kw">NULL</span>);</pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">2.7 数据一致性：先对账后入库</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">入仓前：ETL前查源表总数，与采集后数量对比，差异超阈值则暂停</span><span class="leaf">ETL中：用事务保证同批次原子性，每步记日志</span><span class="leaf">ETL后：核对源表行数 = ETL成功行数 + 异常行数</span><span class="leaf">日常巡检：每日自动跑一致性校验，输出报告</span></div>
+<div class="detail-card"><strong>核心理念：</strong>数据进入正式表之前先跑一致性校验，账对不平就告警，不入库。下游拿到的数据必须是经过质量认证的。</div>
+</div></div>
+</div></div>
+
+<!-- ============ 三、数据建模 ============ -->
+<div class="node branch c-green">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">三、数据建模：选型看场景，别一刀切</span><span class="badge">5个主题</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">3.1 星型 vs 雪花：90%的场景选星型</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">星型：1事实+N维度，维度表不进一步拆分，JOIN少查询快维护简单</span><span class="leaf">雪花：维度表再规范化成多层，存储省但JOIN多查询慢</span><span class="leaf">绝大多数分析场景星型就够了</span><span class="leaf">除非维度表有200+字段且有明确层级，否则优先星型</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">3.2 宽表：空间换时间，用在最终交付层</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">把多个维度字段合并到一张大表，减少JOIN，提升查询性能</span><span class="leaf">宽表的正确位置：分析师的最终查询表，不是ETL的中间层</span><span class="leaf">最好用视图实现而非物理表，保证数据实时性</span><span class="leaf">数据量大时用物化视图或定时刷新</span><span class="leaf">用户级别变了，宽表怎么更新？历史数据怎么处理？设计阶段要想清楚</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">3.3 关系建模：1:1 / 1:N / M:N 各有套路</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">1:1：直接合并或加外键</span><span class="leaf">1:N：多方加外键（订单→订单明细）</span><span class="leaf">M:N：必须用关联表（Bridge Table）</span></div>
+<div class="detail-card"><strong>M:N关键细节：</strong>关联关系本身如果有业务属性（购买数量、价格），关联表必须有。如果只是ID映射，可以简化。</div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">3.4 3NF vs 反规范化：分层处理</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">ETL中间层保持3NF，BI查询层反规范化/宽表</span><span class="leaf">中间层如果反规范化，出问题时很难定位根因</span><span class="leaf">最终交付层宽表化，分析师用起来快</span><span class="leaf">ETL层反规范化是给自己挖坑</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">3.5 事实表 vs 维度表：看业务语义</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">描述"发生了什么"→ 事实表</span><span class="leaf">描述"是什么"→ 维度表</span><span class="leaf">超过30个字段的基本是维度表，不到10个的基本是事实表</span><span class="leaf">维度退化：订单号、发票号等"只做追溯用"的标识符直接放事实表</span><span class="leaf">需要分析的（如订单状态），才单独建维度表</span></div>
+</div></div>
+</div></div>
+
+<!-- ============ 四、产品SN核心建模 ============ -->
+<div class="node branch c-purple">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">四、以产品 SN 为核心的建模体系</span><span class="badge">2个主题</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">4.1 为什么选 SN 做 Hub</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">SN是产品的物理唯一标识，不随渠道变化</span><span class="leaf">同一个产品在不同地方叫法不同，但SN不变</span><span class="leaf">新渠道接入只需加映射关系，不用改事实表结构</span><span class="leaf">设计核心：SN Hub ↔ ID Mapping ↔ 统一事实表</span></div>
+<div class="detail-card"><strong>Hub架构：</strong><br>SN Hub ──┬─ JD订单表（JD_Order）<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 花旗ERP订单表（CITIC_Order）<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ 淘宝商城表（Taobao_Order）<br>ID Mapping ──┬─ 用户维度表（dim_User）<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 渠道维度表（dim_Channel）<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ 店铺维度表（dim_Shop）</div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">4.2 核心表结构设计</span>
+</div>
+<div class="children">
+<pre class="code-block"><span class="cm">-- 1. SN Hub表（产品主数据）</span>
+<span class="kw">CREATE TABLE</span> dim_ProductSN (
+    SNID <span class="kw">INT IDENTITY(1,1) PRIMARY KEY</span>,
+    ProductSN <span class="kw">VARCHAR(50) UNIQUE NOT NULL</span>,
+    ProductPN <span class="kw">VARCHAR(50)</span>,
+    ProductName <span class="kw">VARCHAR(200)</span>,
+    Category <span class="kw">VARCHAR(100)</span>,
+    Brand <span class="kw">VARCHAR(100)</span>,
+    CreateTime <span class="kw">DATETIME DEFAULT GETDATE()</span>,
+    UpdateTime <span class="kw">DATETIME</span>
+);
+
+<span class="cm">-- 2. ID Mapping表（跨平台ID映射——整个架构的核心）</span>
+<span class="kw">CREATE TABLE</span> map_SNMapping (
+    MappingID <span class="kw">INT IDENTITY(1,1) PRIMARY KEY</span>,
+    ProductSN <span class="kw">VARCHAR(50) NOT NULL</span>,
+    JD_ProductID <span class="kw">VARCHAR(50)</span>,
+    Wechat_OpenID <span class="kw">VARCHAR(100)</span>,
+    CITIC_PartNO <span class="kw">VARCHAR(50)</span>,
+    CreateTime <span class="kw">DATETIME DEFAULT GETDATE()</span>,
+    UpdateTime <span class="kw">DATETIME</span>
+);
+
+<span class="cm">-- 3. 统一订单事实表</span>
+<span class="kw">CREATE TABLE</span> fact_Orders (
+    OrderID <span class="kw">BIGINT IDENTITY(1,1) PRIMARY KEY</span>,
+    OrderCode <span class="kw">VARCHAR(50) NOT NULL</span>,
+    ProductSN <span class="kw">VARCHAR(50) NOT NULL</span>,
+    JD_OrderID <span class="kw">VARCHAR(50)</span>,
+    CITIC_OrderNO <span class="kw">VARCHAR(50)</span>,
+    ChannelID <span class="kw">INT</span>,
+    UserID <span class="kw">INT</span>,
+    OrderDate <span class="kw">DATETIME</span>,
+    Amount <span class="kw">DECIMAL(18,2)</span>,
+    Quantity <span class="kw">INT</span>,
+    ETLBatchNo <span class="kw">VARCHAR(50)</span>,
+    CreateTime <span class="kw">DATETIME DEFAULT GETDATE()</span>
+);</pre>
+</div></div>
+</div></div>
+
+<!-- ============ 五、跨平台ID映射 ============ -->
+<div class="node branch c-orange">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">五、跨平台 ID 映射：最难的不是建表，是保证映射质量</span><span class="badge">6个主题</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">5.1 Hub-Spoke 映射模型</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">JD userid → 映射表 → 统一UserID</span><span class="leaf">淘宝 openid → 映射表 → 统一UserID</span><span class="leaf">花旗 Account → 映射表 → 统一UserID</span></div>
+<pre class="code-block"><span class="kw">CREATE TABLE</span> map_UserIdentity (
+    MappingID <span class="kw">BIGINT IDENTITY(1,1) PRIMARY KEY</span>,
+    UnifiedID <span class="kw">VARCHAR(50) UNIQUE NOT NULL</span>,
+    JD_UserID <span class="kw">VARCHAR(50)</span>,
+    Wechat_OpenID <span class="kw">VARCHAR(100)</span>,
+    CITIC_UserCode <span class="kw">VARCHAR(50)</span>,
+    CreateSource <span class="kw">VARCHAR(50)</span>,
+    Confidence <span class="kw">DECIMAL(3,2)</span>,
+    ValidFrom <span class="kw">DATETIME</span>,
+    ValidTo <span class="kw">DATETIME</span>,
+    IsActive <span class="kw">BIT DEFAULT 1</span>
+);</pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">5.2 SN/PN/userid/openid 的关联层次</span>
+</div>
+<div class="children">
+<div class="detail-card"><strong>第一层：产品关联（SN ↔ PN）</strong><br>PN是规格型号，SN是生产批次，一个PN对应多个SN<br><br><strong>第二层：用户关联（userid ↔ openid）</strong><br>淘宝openid真正标识是unionid，一个userid对应1~N个openid<br><br><strong>第三层：购买关系（SN + userid）</strong><br>通过订单/售后记录关联，M:N关系</div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">5.3 ID 映射的质量保障</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">强标识符优先：SN、手机号做精准匹配</span><span class="leaf">模糊匹配加置信度：同一IP/地址关联，置信度低于0.8需人工审核</span><span class="leaf">映射历史可追溯：SCD Type 2记录变更历史，支持回溯</span><span class="leaf">无法关联的数据进异常表：不能强行匹配导致数据错误</span><span class="leaf">持续迭代：覆盖率从60%提升到95%是长期过程</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">5.4 常见 ID 问题的处理</span>
+</div>
+<div class="children">
+<table class="table-mini"><thead><tr><th>问题</th><th>原因</th><th>解决方案</th></tr></thead><tbody>
+<tr><td>SN重复</td><td>扫码录入错误或产品窜码</td><td>加校验规则（校验位）</td></tr>
+<tr><td>openid关联不上用户</td><td>换公众号导致openid变了</td><td>引导用户登录获取unionid</td></tr>
+<tr><td>订单无SN</td><td>散装产品按件卖，无SN</td><td>用订单号+商品编号替代</td></tr>
+<tr><td>userid丢失</td><td>RPA采集时未登录态</td><td>采集端补录或关联收货人信息</td></tr>
+</tbody></table>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">5.5 去重：找到业务键是核心</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">去重不是技术问题，是业务问题——什么情况下两条记录算"重复"？</span><span class="leaf">通常是多字段组合（SN+OrderCode+Amount）</span><span class="leaf">推荐方案：Hash去重</span></div>
+<pre class="code-block"><span class="cm">-- 计算业务键Hash</span>
+<span class="kw">SELECT</span> *, <span class="kw">HASHBYTES</span>(<span class="str">'SHA2_256'</span>,
+    <span class="kw">CAST</span>(ProductSN <span class="kw">AS NVARCHAR(MAX))</span> + <span class="kw">CAST</span>(OrderDate <span class="kw">AS NVARCHAR(MAX))</span>
+) <span class="kw">AS</span> BusinessKeyHash
+<span class="kw">FROM</span> Orders;
+
+<span class="cm">-- 去重：只保留最早录入的</span>
+<span class="kw">WITH</span> Ranked <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> *, <span class="kw">ROW_NUMBER() OVER</span> (
+        <span class="kw">PARTITION BY</span> BusinessKeyHash <span class="kw">ORDER BY</span> CreateTime <span class="kw">ASC</span>
+    ) <span class="kw">AS</span> rn
+    <span class="kw">FROM</span> Orders
+)
+<span class="kw">DELETE FROM</span> Ranked <span class="kw">WHERE</span> rn &gt; <span class="num">1</span>;</pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">5.6 主键唯一性的保障与踩坑</span>
+</div>
+<div class="children">
+<div class="detail-card"><strong>保障手段：数据库约束 > 应用层逻辑</strong>——永远在数据库层面加约束，比应用层更可靠。</div>
+<pre class="code-block"><span class="cm">-- ETL幂等性用MERGE保证</span>
+<span class="kw">MERGE INTO</span> dim_Products <span class="kw">AS</span> target
+<span class="kw">USING</span> staging_Products <span class="kw">AS</span> source
+<span class="kw">ON</span> target.ProductSN = source.ProductSN
+<span class="kw">WHEN MATCHED THEN UPDATE SET</span> ProductName = source.ProductName
+<span class="kw">WHEN NOT MATCHED THEN INSERT</span> (ProductSN, ProductName, ...) <span class="kw">VALUES</span> (...);</pre>
+<div class="leaves"><span class="leaf">坑1：源数据本身有重复——ETL前加去重步骤</span><span class="leaf">坑2：历史迁移主键冲突——各平台加前缀（JD_/CITIC_）</span><span class="leaf">坑3：复合主键中NULL导致去重失效——用ISNULL()转成特殊值</span></div>
+</div></div>
+</div></div>
+
+<!-- ============ 六、数据质量治理 ============ -->
+<div class="node branch c-teal">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">六、数据质量治理：不是一次性项目，是持续运营机制</span><span class="badge">5个主题</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">6.1 四维度监控框架</span>
+</div>
+<div class="children">
+<table class="table-mini"><thead><tr><th>维度</th><th>监控内容</th><th>核心指标</th><th>告警阈值</th></tr></thead><tbody>
+<tr><td>完整性</td><td>数据缺失</td><td>空值率、主键缺失率</td><td>空值率>1%</td></tr>
+<tr><td>一致性</td><td>跨系统一致</td><td>外键引用失败率、枚举值合法率</td><td>失败率>0.5%</td></tr>
+<tr><td>时效性</td><td>更新及时</td><td>数据延迟时长</td><td>延迟>8h</td></tr>
+<tr><td>准确性</td><td>数据正确</td><td>格式错误率、业务规则违背率</td><td>错误率>5%严重告警</td></tr>
+</tbody></table>
+<pre class="code-block"><span class="cm">-- 完整性</span>
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">AS</span> TotalRows,
+    <span class="kw">SUM</span>(<span class="kw">CASE WHEN</span> ProductSN <span class="kw">IS NULL THEN</span> <span class="num">1.0</span> <span class="kw">ELSE</span> <span class="num">0 END</span>) / <span class="kw">COUNT</span>(*) <span class="kw">AS</span> NullSNRate
+<span class="kw">FROM</span> fact_Orders;
+
+<span class="cm">-- 时效性</span>
+<span class="kw">SELECT MAX</span>(OrderDate) <span class="kw">AS</span> LatestOrderDate,
+    <span class="kw">DATEDIFF</span>(HOUR, <span class="kw">MAX</span>(OrderDate), <span class="kw">GETDATE()</span>) <span class="kw">AS</span> DataDelayHours
+<span class="kw">FROM</span> fact_Orders;
+
+<span class="cm">-- 准确性</span>
+<span class="kw">SELECT SUM</span>(<span class="kw">CASE WHEN</span> Amount &lt; <span class="num">0 THEN</span> <span class="num">1 ELSE</span> <span class="num">0 END</span>) <span class="kw">AS</span> NegativeAmountCount,
+    <span class="kw">SUM</span>(<span class="kw">CASE WHEN</span> OrderDate &gt; <span class="kw">GETDATE() THEN</span> <span class="num">1 ELSE</span> <span class="num">0 END</span>) <span class="kw">AS</span> FutureDateCount
+<span class="kw">FROM</span> fact_Orders;</pre>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">6.2 三层防护体系</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">第一层：ETL过程中实时打标——异常数据标记，不阻断流程</span><span class="leaf">第二层：ETL完成后跑质量校验任务——核对四维度指标</span><span class="leaf">第三层：每周/月出质量趋势报告——关注趋势，不只是当前值</span></div>
+<div class="leaves"><span class="leaf">P0（必须立即处理）</span><span class="leaf">P1（当天处理）</span><span class="leaf">P2（下周处理）</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">6.3 异常处理 SOP</span>
+</div>
+<div class="children">
+<div class="detail-card"><strong>闭环：</strong>识别（Detect）→ 隔离（Isolate）→ 分析（Analyze）→ 处置（Resolve）</div>
+<table class="table-mini"><thead><tr><th>类型</th><th>时效</th></tr></thead><tbody>
+<tr><td>字段缺失（可填充）</td><td>当天</td></tr>
+<tr><td>格式错误（可转换）</td><td>当天</td></tr>
+<tr><td>主键冲突</td><td>当天</td></tr>
+<tr><td>业务逻辑错误</td><td>24h（需业务方确认）</td></tr>
+<tr><td>数据丢失</td><td>48h（补采或手工补录）</td></tr>
+<tr><td>系统性错误</td><td>立即（修复ETL后重跑）</td></tr>
+</tbody></table>
+<div class="detail-card"><strong>关键：</strong>每次异常都要记录根因和处置方式，每月出异常分析报告。同一问题重复出现=ETL流程有漏洞，需要系统性修复，而不是每次靠人工。</div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">6.4 质量报告：让业务方一眼看懂</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">原则：Traffic Light定调、关键数字说话、趋势图讲故事</span></div>
+<div class="detail-card">
+<strong>数据质量日报</strong><br><br>
+【总体健康度】🟢 92%（较昨日↓3pp，需关注）<br><br>
+fact_Orders &nbsp;&nbsp;│ 52,130行 │ 空值率0.1%🟢 │ 异常率0.8%🟢 │ 延迟3h🟢<br>
+dim_Products │ 3,421行 │ 空值率0.0%🟢 │ 异常率0.2%🟢 │ 延迟1h🟢<br>
+staging_JD &nbsp;&nbsp;│ 12,040行 │ 空值率2.1%🟢 │ 异常率3.5%🟡 │ 延迟0.5h🟢<br><br>
+【⚠️ 需关注】staging_JD异常率3.5%（↑1.2%）— 已联系RPA团队调整采集脚本
+</div>
+<div class="leaves"><span class="leaf">业务方不需要知道"外键引用失败率"，只需要说"99条订单找不到对应的用户信息"</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">6.5 新数据源接入的质量评估（7步法）</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">数据探底 → 主键分析 → 完整性评估 → 一致性评估 → 时效性评估 → 业务价值评估 → 质量报告</span></div>
+<div class="detail-card"><strong>核心原则：</strong>先探底再决策。不是所有数据都要完美才能接入，关键是识别当前质量水平、判断业务能否接受。</div>
+<table class="table-mini"><thead><tr><th>指标</th><th>达标</th><th>观察</th><th>不达标</th></tr></thead><tbody>
+<tr><td>主键唯一性</td><td>≥99.9%</td><td>95-99.9%</td><td>&lt;95%</td></tr>
+<tr><td>必填字段空值率</td><td>&lt;1%</td><td>1-5%</td><td>&gt;5%</td></tr>
+<tr><td>格式错误率</td><td>&lt;0.5%</td><td>0.5-2%</td><td>&gt;2%</td></tr>
+<tr><td>时效延迟</td><td>&lt;4h</td><td>4-12h</td><td>&gt;12h</td></tr>
+</tbody></table>
+</div></div>
+</div></div>
+
+<!-- ============ 七、无API场景ETL ============ -->
+<div class="node branch c-pink">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">七、无 API 场景的 ETL 架构设计</span><span class="badge">3个主题</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">7.1 无API场景架构设计</span>
+</div>
+<div class="children">
+<div class="detail-card"><strong>架构层次：</strong><br><br>数据采集层（RPA）<br>&nbsp;&nbsp;└─ 模拟人工操作获取页面数据<br>&nbsp;&nbsp;└─ 难点：结构不固定、字段缺失、需登录态<br><br>数据缓存层（Raw）<br>&nbsp;&nbsp;└─ RPA输出直接落原始表，零清洗<br>&nbsp;&nbsp;└─ 加采集时间戳、批次号，方便溯源<br><br>数据清洗层（Staging）<br>&nbsp;&nbsp;└─ 字段映射标准化，脏数据打标入异常表<br><br>数据关联层（ODS/DW）<br>&nbsp;&nbsp;└─ 跨平台ID映射，写入统一事实表<br><br>监控告警<br>&nbsp;&nbsp;└─ 采集成功率、数据量波动、异常字段</div>
+<div class="detail-card"><strong>核心心法：</strong>没有API的场景，先拿数据再清洗。采集层别做逻辑，否则RPA脚本维护成本爆炸。</div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">7.2 新数据源接入的标准化流程</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">需求分析 → 数据探底 → 主键映射设计 → ETL开发 → 质量校验 → 上线交付</span></div>
+<div class="leaves"><span class="leaf">不是每次都从零设计，先输出标准模板，让后续接入效率提升</span><span class="leaf">交付时必须带：字段映射表、数据字典、更新日志，声明SLA</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">7.3 多平台数据不一致的排查路径</span>
+</div>
+<div class="children">
+<div class="detail-card"><strong>从目标往源排查：</strong><br><br>1️⃣ 查目标表写入逻辑：先到先写vs后到覆盖？去重规则误删了有效数据？<br>2️⃣ 查ID关联环节：主键映射表完整吗？ID冲突导致记录丢失？<br>3️⃣ 查ETL清洗过程：字段映射搞混了？清洗规则不一致（大小写、空格、编码）？<br>4️⃣ 查源头数据：各平台原始数据本身就不一致？RPA采集丢了字段？</div>
+<div class="leaves"><span class="leaf">定位根因后，先修数据，再修流程，加监控防止再发</span></div>
+</div></div>
+</div></div>
+
+<!-- ============ 八、与业务方沟通 ============ -->
+<div class="node branch c-indigo">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">八、与业务方沟通：说人话</span><span class="badge">翻译对照</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">8.1 技术术语 vs 业务语言</span>
+</div>
+<div class="children">
+<table class="table-mini"><thead><tr><th>技术术语</th><th>业务语言</th></tr></thead><tbody>
+<tr><td>事实表</td><td>交易记录表</td></tr>
+<tr><td>维度表</td><td>产品信息表</td></tr>
+<tr><td>外键关联</td><td>通过产品编号，把各平台数据串起来</td></tr>
+<tr><td>数据去重</td><td>同一个人多个订单，去掉重复只算一次</td></tr>
+<tr><td>ETL管道</td><td>从各个平台自动搬数据进来的流程</td></tr>
+<tr><td>数据质量监控</td><td>每天自动检查数据有没有问题</td></tr>
+</tbody></table>
+<div class="detail-card"><strong>话术模板：</strong><br>"你的需求是看每个产品的全渠道销量。我设计的方式是以产品编号为核心，把JD、淘宝、花旗的数据都关联到同一张表里。你看到的每一行就是一个产品在一个渠道的完整数据，不需要手工匹配，分析师直接出报表。"</div>
+</div></div>
+</div></div>
+
+<!-- ============ 九、关键经验清单 ============ -->
+<div class="node branch c-brown">
+<div class="branch-header" onclick="toggle(this)">
+<i class="toggle-icon">▶</i>
+<span class="branch-title">九、关键经验清单</span><span class="badge">正确决策+踩坑+认知</span>
+</div>
+<div class="children">
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">✅ 做过的正确决策</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">分层架构（Raw→Staging→DW）：出问题能定位到具体层，不用全局排查</span><span class="leaf">SN做核心Hub：新渠道接入只加映射字段，不动事实表</span><span class="leaf">异常数据隔离不入目标表：避免脏数据污染下游</span><span class="leaf">ETL幂等性用MERGE：重复执行不会出问题</span><span class="leaf">告警分级：避免告警疲劳</span><span class="leaf">数据质量日报+Traffic Light：业务方看得懂，才会信任数据</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">❌ 踩过的坑</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">隐式类型转换导致索引失效：SQL不报错但索引废了</span><span class="leaf">RPA采集层做清洗逻辑：页面改版后脚本全崩，维护成本爆炸</span><span class="leaf">脏数据直接丢弃：丢了业务边界数据，分析结果偏差</span><span class="leaf">ETL中间层反规范化：出问题排查成本极高</span><span class="leaf">复合主键有NULL：唯一约束不生效，重复数据悄悄混入</span><span class="leaf">历史数据迁移不做主键冲突检测：上线直接报错</span><span class="leaf">告警不分级：一堆告警没人看，等于没有监控</span></div>
+</div></div>
+<div class="sub-branch">
+<div class="sub-header" onclick="toggleSub(this)">
+<i class="sub-toggle">▶</i>
+<span class="sub-title">💡 最重要的认知</span>
+</div>
+<div class="children">
+<div class="leaves"><span class="leaf">数据质量监控是持续运营机制，不是一次性项目</span><span class="leaf">数据库约束 > 应用层逻辑，永远在数据库层面保证规则</span><span class="leaf">先对账后入库，下游拿到的数据必须是经过质量认证的</span><span class="leaf">脏数据不丢弃，但必须隔离</span><span class="leaf">RPA数据质量差是常态，不是意外——架构要为这个常态设计</span><span class="leaf">统一ID自增生成，不依赖任何平台ID</span><span class="leaf">映射覆盖率从60%提升到95%是长期过程，不可能一步到位</span></div>
+</div></div>
+</div></div>
+
+</div><!-- end mindmap -->
+
+<div class="stats-bar">
+<div class="stat-item"><div class="stat-num">9</div><div class="stat-label">大章节</div></div>
+<div class="stat-item"><div class="stat-num">35+</div><div class="stat-label">核心主题</div></div>
+<div class="stat-item"><div class="stat-num">200+</div><div class="stat-label">详细条目</div></div>
+<div class="stat-item"><div class="stat-num">8</div><div class="stat-label">颜色主题</div></div>
+</div>
+
+<div class="footer">
+<p>数据架构 DW/DM 实战经验总结 v1.0 | 适用场景：面试准备 · 项目复盘 · 团队培训</p>
+<p style="margin-top:4px;">点击每个节点可展开/收起子内容 | 支持关键词搜索高亮</p>
+</div>
+
+<script>
+function toggle(el) {
+  var icon = el.querySelector('.toggle-icon');
+  var children = el.nextElementSibling;
+  if (children.classList.contains('collapsed')) {
+    children.classList.remove('collapsed');
+    children.style.maxHeight = children.scrollHeight + 'px';
+    icon.classList.add('expanded');
+    void children.offsetWidth;
+    children.style.maxHeight = 'none';
+  } else {
+    children.style.maxHeight = children.scrollHeight + 'px';
+    void children.offsetWidth;
+    children.classList.add('collapsed');
+    icon.classList.remove('expanded');
+  }
+}
+
+function toggleSub(el) {
+  var icon = el.querySelector('.sub-toggle');
+  var children = el.nextElementSibling;
+  if (children.classList.contains('collapsed')) {
+    children.classList.remove('collapsed');
+    children.style.maxHeight = children.scrollHeight + 'px';
+    icon.classList.add('expanded');
+    void children.offsetWidth;
+    children.style.maxHeight = 'none';
+  } else {
+    children.style.maxHeight = children.scrollHeight + 'px';
+    void children.offsetWidth;
+    children.classList.add('collapsed');
+    icon.classList.remove('expanded');
+  }
+}
+
+function expandAll() {
+  document.querySelectorAll('.children.collapsed').forEach(function(el) {
+    el.classList.remove('collapsed');
+    el.style.maxHeight = 'none';
+  });
+  document.querySelectorAll('.toggle-icon').forEach(function(el) { el.classList.add('expanded'); });
+  document.querySelectorAll('.sub-toggle').forEach(function(el) { el.classList.add('expanded'); });
+}
+
+function collapseAll() {
+  document.querySelectorAll('.children:not(.collapsed)').forEach(function(el) {
+    if (!el.closest('.node-root')) {
+      el.style.maxHeight = el.scrollHeight + 'px';
+      void el.offsetWidth;
+      el.classList.add('collapsed');
+    }
+  });
+  document.querySelectorAll('.toggle-icon').forEach(function(el) { el.classList.remove('expanded'); });
+  document.querySelectorAll('.sub-toggle').forEach(function(el) { el.classList.remove('expanded'); });
+}
+
+function toggleSearch() {
+  var input = document.getElementById('searchInput');
+  input.style.display = input.style.display === 'block' ? 'none' : 'block';
+  if (input.style.display === 'block') input.focus();
+}
+
+function doSearch(keyword) {
+  keyword = keyword.trim().toLowerCase();
+  document.querySelectorAll('.search-highlight').forEach(function(el) {
+    var parent = el.parentNode;
+    parent.replaceChild(document.createTextNode(el.textContent), el);
+    parent.normalize();
+  });
+  document.querySelectorAll('.leaf.highlight').forEach(function(el) { el.classList.remove('highlight'); });
+
+  if (!keyword) return;
+
+  var count = 0;
+  document.querySelectorAll('.leaf, .branch-title, .sub-title').forEach(function(el) {
+    var text = el.textContent.toLowerCase();
+    if (text.indexOf(keyword) !== -1) {
+      if (el.classList.contains('leaf')) {
+        el.classList.add('highlight');
+      } else {
+        var html = el.innerHTML;
+        var regex = new RegExp('(' + keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        el.innerHTML = html.replace(regex, '<span class="search-highlight">$1</span>');
+      }
+      count++;
+
+      var parent = el.closest('.children');
+      while (parent && !parent.closest('.node-root')) {
+        parent.classList.remove('collapsed');
+        parent.style.maxHeight = 'none';
+        var toggleIcon = parent.previousElementSibling ? parent.previousElementSibling.querySelector('.toggle-icon, .sub-toggle') : null;
+        if (toggleIcon) toggleIcon.classList.add('expanded');
+        parent = parent.parentElement ? parent.parentElement.closest('.children') : null;
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
